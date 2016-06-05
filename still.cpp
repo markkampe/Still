@@ -98,8 +98,8 @@ bool Still::checkStatus() {
 		}
 		// FIX: sanity check the cooling rate
 	} else if (curComand == cool) {
+		heating = false;
 		if (curReading[0] <= maxTarget) {
-			heating = false;
 			curStatus = Still::ready;
 			return( false );
 		}
