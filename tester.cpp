@@ -3,6 +3,7 @@
  * (as such, it is not much like a real still manager)
  */
 #include "still.h"
+#include "sensors.h"
 #include "Arduino.h"
 #include <stdio.h>
 
@@ -27,14 +28,21 @@ static char *sts[] = {	// map for status display
 	(char *) "fast", (char *) "slow" };
 
 void dumpStatus(Still *still ) {
-	extern int sensorToTemp(int);
 	printf("%d:\tstatus=%s, heater %s\n", clock, 
 		sts[still->curStatus], 
 		still->heating ? "on" : "off");
-	printf("\tkettle %dF\n", sensorToTemp(still->curReading[0]));
-	printf("\tambient %dF\n", sensorToTemp(still->curReading[1]));
-	printf("\tcondens %dF\n", sensorToTemp(still->curReading[2]));
-	printf("\talcohol %d\n", still->curReading[3]);
+	printf("\tkettle %dF (%dC)\n", 
+		sensorToDegF(still->curReading[0]),
+		sensorToDegC(still->curReading[0]));
+	printf("\tambient %dF (%dC)\n", 
+		sensorToDegF(still->curReading[1]),
+		sensorToDegC(still->curReading[1]));
+	printf("\tcondens %dF (%dC)\n", 
+		sensorToDegF(still->curReading[2]),
+		sensorToDegC(still->curReading[2]));
+	printf("\talcohol %d.%d\n", 
+		sensorToAlc10(still->curReading[3])/10,
+		sensorToAlc10(still->curReading[3])%10);
 }
 
 /*
@@ -61,21 +69,19 @@ void waitfor(Still *still, int minutes) {
  * run a standard test scenario
  */
 void test(Still *still) {
-	extern int tempToSensor(int);
-
 	// bring it up to 180
 	printf("HEAT 180\n");
-	still->setCommand(Still::heat, tempToSensor(180), tempToSensor(180));
+	still->setCommand(Still::heat, degFtoSensor(180), degFtoSensor(180));
 	waitfor(still,100);
 
 	// hold it between 175 and 185 for 10 minutes
 	printf("HOLD 175-185, 10 minutes\n");
-	still->setCommand(Still::hold, tempToSensor(175), tempToSensor(185));
+	still->setCommand(Still::hold, degFtoSensor(175), degFtoSensor(185));
 	waitfor(still,10);
 
 	// take it down to 100
 	printf("COOL 100\n");
-	still->setCommand(Still::cool, tempToSensor(100), tempToSensor(100));
+	still->setCommand(Still::cool, degFtoSensor(100), degFtoSensor(100));
 	waitfor(still,100);
 
 	printf("Test completed\n");

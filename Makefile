@@ -1,4 +1,4 @@
-OBJS=tester.o still.o simulator.o
+OBJS=tester.o still.o sensors.o simulator.o
 tester: $(OBJS)
 	g++ -o $@ $(OBJS)
 

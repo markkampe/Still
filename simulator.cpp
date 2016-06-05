@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "sensors.h"
 static int heating = 0;
 
 /* simulated pins	*/
@@ -11,14 +12,6 @@ static int heating = 0;
 #define RELAY 10
 
 static float values[7];
-
-int tempToSensor( int fahrenheit ) {
-	return( 4 * fahrenheit );
-}
-
-int sensorToTemp( int sensor ) {
-	return( sensor / 4 );
-}
 
 // reference temperatures (in sensor units)
 #define	ROOMTEMP 100
@@ -38,11 +31,11 @@ int sensorToTemp( int sensor ) {
  */
 void pinMode(int pin, int direction) {
 	if (values[KETTLE1] == 0) {
-		values[KETTLE1] = tempToSensor(68);
-		values[KETTLE2] = tempToSensor(69);
-		values[AMBIENT1] = tempToSensor(67);
-		values[AMBIENT2] = tempToSensor(70);
-		values[CONDENSOR1] = tempToSensor(68);
+		values[KETTLE1] = degFtoSensor(68);
+		values[KETTLE2] = degFtoSensor(69);
+		values[AMBIENT1] = degFtoSensor(67);
+		values[AMBIENT2] = degFtoSensor(70);
+		values[CONDENSOR1] = degFtoSensor(68);
 		values[ALCOHOL] = MIN_ALC;
 		heating = 0;
 	}
@@ -93,7 +86,7 @@ void tick(int minutes) {
 	if (heating) {
 		dh_ck = (COILTEMP - k) * dTdt_K * minutes;
 		// boiling carries away a lot of energy
-		if (k >= tempToSensor(BOIL_H2O))	
+		if (k >= degFtoSensor(BOIL_H2O))	
 			dh_ck /= 2;
 	}
 
@@ -115,13 +108,13 @@ void tick(int minutes) {
 	values[AMBIENT2] += dh_ka / AoverK;	// kettle heats
 
 	// update the condensor temperatures
-	if (k >= tempToSensor(BOIL_ALC))
-		values[CONDENSOR1] = tempToSensor(BOIL_ALC);
+	if (k >= degFtoSensor(BOIL_ALC))
+		values[CONDENSOR1] = degFtoSensor(BOIL_ALC);
 	else
 		values[CONDENSOR1] += dh_kc;
 
 	// update the ambient alcohol level
-	if (k >= tempToSensor(BOIL_ALC))
+	if (k >= degFtoSensor(BOIL_ALC))
 		values[ALCOHOL] += dAdt;
 	else if (values[ALCOHOL] > MIN_ALC)
 		values[ALCOHOL] -= dAdt;
