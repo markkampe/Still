@@ -76,7 +76,7 @@ void test(Still *still) {
 
 	// hold it between 175 and 185 for 10 minutes
 	printf("HOLD 175-185, 10 minutes\n");
-	still->setCommand(Still::hold, degFtoSensor(175), degFtoSensor(185));
+	still->setCommand(Still::hold, degFtoSensor(180), degFtoSensor(185));
 	waitfor(still,10);
 
 	// take it down to 100
