@@ -4,9 +4,11 @@
  */
 #include "still.h"
 #include "sensors.h"
+#include "simulator.h"
 #include "Arduino.h"
 #include <stdio.h>
 
+// configuration of sensors
 static struct sensor_cfg sensors[] = {
 	{1, 0}, {2, 0},	// two kettle sensors
 	{3, 1}, {4, 1},	// two ambient sensors
@@ -14,12 +16,17 @@ static struct sensor_cfg sensors[] = {
 	{6, 3}		// one alcohol sensor
 };
 
+// configuration of zones
 static struct zone_cfg zones[] = {
 	{64, 800, 50},	// kettle temp (sensor units)
 	{0, 400, 50},	// ambient temp (sensor units)
 	{64, 700, 50},	// condensor temp (sensor units)
 	{0, 800, 50}	// alcohol (sensor units)
 };
+
+#define	HEATER		3000	// 1500 Watts
+#define	CAPACITY	20000	// 20L = 5G
+#define	AMBIENT		68	// degF
 
 int clock = 0;
 static char *sts[] = {	// map for status display
@@ -48,8 +55,7 @@ void dumpStatus(Still *still ) {
 /*
  * wait up to a specified period of time for an operation to complete
  */
-void waitfor(Still *still, int minutes) {
-	extern void tick(int);	// simulator
+void waitfor(Still *still, Simulator *simulator, int minutes) {
 
 	for(int m = 0; m < minutes; m++ ) {
 		bool cont = still->checkStatus();
@@ -57,8 +63,8 @@ void waitfor(Still *still, int minutes) {
 		digitalWrite(10, still->heating);
 		if (!cont)
 			break;
-		clock++;
-		tick(1);
+		clock += 60;
+		simulator->simulate(60);
 	}
 	digitalWrite(10, 0);	// heater off
 	printf("Operation completed\n");
@@ -68,21 +74,21 @@ void waitfor(Still *still, int minutes) {
 /*
  * run a standard test scenario
  */
-void test(Still *still) {
+void test(Still *still, Simulator *simulator) {
 	// bring it up to 180
 	printf("HEAT 180\n");
 	still->setCommand(Still::heat, degFtoSensor(180), degFtoSensor(180));
-	waitfor(still,100);
+	waitfor(still,simulator, 100);
 
 	// hold it between 175 and 185 for 10 minutes
 	printf("HOLD 175-185, 10 minutes\n");
 	still->setCommand(Still::hold, degFtoSensor(180), degFtoSensor(185));
-	waitfor(still,10);
+	waitfor(still,simulator, 10);
 
 	// take it down to 100
 	printf("COOL 100\n");
 	still->setCommand(Still::cool, degFtoSensor(100), degFtoSensor(100));
-	waitfor(still,100);
+	waitfor(still,simulator, 100);
 
 	printf("Test completed\n");
 }
@@ -90,9 +96,7 @@ void test(Still *still) {
 int main(int argc, char **argv) {
 	// instantiate a still controller
 	Still *still = new Still(sensors, zones);
+	Simulator *simulator = new Simulator(HEATER, CAPACITY, degFtoSensor(AMBIENT));
 
-	// simulated heater relay pin
-	pinMode(10, OUTPUT);
-
-	test(still);
+	test(still, simulator);
 }

@@ -1,132 +1,156 @@
 #include <stdio.h>
+#include <math.h>
 #include "sensors.h"
-static int heating = 0;
+#include "simulator.h"
 
-/* simulated pins	*/
-#define	KETTLE1 1
-#define KETTLE2 2
-#define AMBIENT1 3
-#define AMBIENT2 4
-#define CONDENSOR1 5
-#define ALCOHOL 6
-#define RELAY 10
+//define DEBUG	1
 
-static float values[7];
+static Simulator *sim;	// static instance pointer
 
 /*
- * program a pin for input or output
- *
- *	use first call to initialize sensor simulations
+ * Arduino: program a pin for input or output
  */
-void pinMode(int pin, int direction) {
-#define ROOM_TEMP 68
-#define MIN_ALC	5
-	if (values[KETTLE1] == 0) {
-		values[KETTLE1] = degFtoSensor(ROOM_TEMP + 1);
-		values[KETTLE2] = degFtoSensor(ROOM_TEMP - 1);
-		values[AMBIENT1] = degFtoSensor(ROOM_TEMP + 2);
-		values[AMBIENT2] = degFtoSensor(ROOM_TEMP - 2);
-		values[CONDENSOR1] = degFtoSensor(ROOM_TEMP + 0);
-		values[ALCOHOL] = MIN_ALC;
-		heating = 0;
-	}
-}
+void pinMode(int pin, int direction) { }
 
 /*
- * digital write
+ * Arduino: digital write
  *	the only output pin we simulate is the heater relay
  */
 void digitalWrite(int pin, short value) {
-	if (pin == RELAY && heating != value) {
-		printf("\tHEAT: %s\n", value ? "on" : "off");
-		heating = value;
-	}
+	printf("\tHEAT: %s\n", value ? "on" : "off");
+	sim->heat(value);
 }
 
 
 /*
- * analog read
+ * Arduino: analog read
  *	return the value from a simulated sensor
  */
 short analogRead(int pin) {
+	return(sim->readPin(pin));
+}
+
+/**
+ * constructor - initialize sensors, compute parameters
+ *
+ * @param	heater power (watts)
+ * @param	kettle volume (ml)
+ * @param	ambient temperature (sensor units)
+ */
+Simulator::Simulator(int watts, int ml, short degS) {
+	sim = this;
+	power = watts;
+	ambient = degS;
+	
+
+	// initialize the sensor values
+	values[kettle1] = degS + 2;
+	values[kettle2] = degS - 2;
+	values[ambient1] = degS + 1;
+	values[ambient2] = degS - 1;
+	values[condensor1] = degS;
+#define	MIN_ALC		5	// minimum likely reading
+	values[alcohol] = MIN_ALC;
+	heating = 0;
+
+	// compute the rate of kettle heating per watt
+#define	RHO_H2O		1.0	// density of water (grams/ml)
+#define	FRAC_MALT	0.35	// malt/H2O ratio (by weight)
+#define	SPEC_H2O	4.2	// specific heat of water (Watts/g/degC)
+#define	SPEC_MALT	1.7	// specific heat of malt (Watts/g/degC)
+	float mass = ml * (RHO_H2O  + (RHO_H2O * FRAC_MALT));
+	float specHeat = SPEC_H2O + (FRAC_MALT * SPEC_MALT);
+	float wattsPerDegC = mass * specHeat;
+	float degSperDegC = (degCtoSensor(100) - degCtoSensor(0))/100.0;
+	C_heating = wattsPerDegC / degSperDegC;
+
+	// compute the convective heat loss per degree
+#define	CONV_AIR	.002	// convective air transfer (W/cm^2 degC)
+	// assume kettle volume is twice the liquid volume, area = vol^2/3:x
+	float kettleArea = exp( log(2 * ml) * 2 / 3 );
+	C_cooling = kettleArea * CONV_AIR / degSperDegC;
+
+	// I consider the heat to flow into a 2M cube around the still
+#define	RHO_AIR		.001225	// density of air (grams/cc)
+#define SPEC_AIR	4.2	// specific heat (watts/g/degC)
+	float airVol = 2.0E2 * 2.0E2 * 2.0E2;
+	float airMass = airVol * RHO_AIR;
+	C_air = airMass * SPEC_AIR / degSperDegC;
+
+	// the 2M cube conducts heat (through air) into an infinite ambient sink
+#define	COND_AIR_AIR	.01	// thermal conductivity (watts/m-degC)
+	float area = 5 * 2.0E2;
+	C_drain = area * COND_AIR_AIR / degSperDegC;
+	
+#ifdef DEBUG
+	printf("mass = %f, specHeat = %f\n", mass, specHeat);
+	printf("W/degC = %f, degS/degC=%f, W/degS=%f\n", wattsPerDegC, degSperDegC, C_heating);
+
+	printf("area = %f cm^2, W/degS = %f\n", kettleArea, C_cooling);
+
+	printf("air mass = %fg, W/degS = %f\n", airMass, C_air);
+
+	printf("area = %fcm^2, W/degS = %f\n", area, C_drain);
+#endif
+}
+
+void Simulator::heat(bool on) {
+	heating = on;
+}
+
+short Simulator::readPin(int pin) {
 	return( (short) values[pin] );
 }
 
+void Simulator::simulate(int seconds) {
 /*
  * physics simulation parameters
  */
-#define	POWER		1500	// power of the heater (Watts)
-#define	SPEC_H2O	4.2	// specific heat of water (Watts/g/degC)
-#define	SPEC_MALT	1.7	// specific heat of malt (Watts/g/degC)
 #define BOIL_WATER	100	// boiling point of water (degC)
 #define	BOIL_ETHANOL	78	// boiling point of methanol (degC)
-#define	TERM_CU		400	// resistance (watt-meters/square meter degC)
 
-#define	COND_PATH	(.03*.001)/.5	// path to condensor (meters)
-#define CAP_H2O		20000	// water in kettle (grams)
-#define	FRAC_MALT	0.35	// malt/H2O
 
-// 
-// add convective cooling
-// add radiative cooling
-// add heating of ambient air
-
-/* 
- * increment the clock that drives the simulation
- */
-void tick(int seconds) {
-
-// FIX: just move to a watts/mass/specific heat model
-// temperature model is based on heat-flow computations
-// which are, in turn, based on heat flow resistance 
-// and relative heat mass constants.
-#define COILTEMP 1000
-#define	dTdt_K 0.1	// coil->kettle flow
-#define	dTdt_A 0.05	// kettle->ambient flow
-#define	dTdt_C 0.02	// kettle->condensor flow
-#define	AoverK 20.0	// ambient/kettle thermal mass ratio
-#define	dAdt  1.0	// rate of alcohol build-up
-
-	// note the key environmental values
-	float k = (values[KETTLE1] + values[KETTLE2])/2;
-	float a = (values[AMBIENT1] + values[AMBIENT2])/2;
-	float c = values[CONDENSOR1];
+	// start with the current temperatures
+	float k = (values[kettle1] + values[kettle2])/2;
+	float a = (values[ambient1] + values[ambient2])/2;
+	float c = values[condensor1];
 
 	// compute the coil to kettle heat flow
-	int dh_ck = 0;
-	if (heating) {
-		dh_ck = (COILTEMP - k) * dTdt_K * seconds;
-		// boiling carries away a lot of energy
-		if (k >= degCtoSensor(BOIL_WATER))	
-			dh_ck /= 2;
-	}
+	float W_ck = heating ? power : 0;
+	if (k >= degCtoSensor(BOIL_WATER))	
+		W_ck /= 2;
 
-	// compute the kettle/ambient heat flow
-	int dh_ka = (k-a) * dTdt_A * seconds;
+	// compute the kettle to air heat flow
+	float W_ka = C_cooling * (k - a);
 
-	// compute the kettle to condensor heat flow
-	int dh_kc = (k-c) * dTdt_C * seconds;
+	// compute the air-to-air heat flow
+	float W_aa = (a - ambient) * C_drain;
 
 #ifdef DEBUG
-	printf("K=%f, A=%f, h=%d, dh_ck = %d, dh_ka=%d\n", k, a, heating, dh_ck, dh_ka);
+	printf("W_ck = %f, W_ka = %f, w_aa = %f\n", W_ck, W_ka, W_aa);
 #endif
-	// update the kettle temperatures
-	values[KETTLE1] += dh_ck - dh_ka;	// coil heats, ambient cools
-	values[KETTLE2] += dh_ck - dh_ka;	// coil heats, ambient cools
-	k = (values[KETTLE1] + values[KETTLE2])/2;
 
-	// update the ambient temperatures
-	values[AMBIENT1] += dh_ka / AoverK;	// kettle heats
-	values[AMBIENT2] += dh_ka / AoverK;	// kettle heats
-	a = (values[AMBIENT1] + values[AMBIENT2])/2;
+	// compute the resulting temperature changes
+	float deltaK = (W_ck - W_ka) * seconds / C_heating;
+	values[kettle1] += deltaK;
+	values[kettle2] += deltaK;
 
+	// air is heated by kettle, cooled by surrounding air
+	float deltaA = (W_ka - W_aa) * seconds / C_air;
+	values[ambient1] += deltaA;
+	values[ambient2] += deltaA;
+
+	// FIX: model conductive heating of condensor before boil
+	// FIX: model continuous convective cooling of condensor
+#define	TERM_CU		400	// resistance (watt-meters/square meter degC)
+#define	COND_PATH	(.03*.001)/.5	// path to condensor (meters)
 	// update the condensor and alcohol sensors
 	if (k >= degCtoSensor(BOIL_ETHANOL)) {
-		values[CONDENSOR1] = degCtoSensor(BOIL_ETHANOL);
-		values[ALCOHOL] += dAdt;
+		values[condensor1] = degCtoSensor(BOIL_ETHANOL);
+		values[alcohol] += 1;		// FIX
 	} else {
-		values[CONDENSOR1] += dh_kc;
-		if (values[ALCOHOL] > MIN_ALC)
-			values[ALCOHOL] -= dAdt;
+		values[condensor1] += 1;	// FIX
+		if (values[alcohol] > MIN_ALC)
+			values[alcohol] -= 1;	// FIX
 	}
 }
