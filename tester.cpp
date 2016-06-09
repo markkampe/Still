@@ -1,19 +1,22 @@
 /*
- * this is a test driver to exercise the still class
+ * this is a test driver to exercise the still controller class
  * (as such, it is not much like a real still manager)
  */
-#include "still.h"
+#include <stdio.h>
+#include "controller.h"
 #include "sensors.h"
+#include "brew.h"
+#include "still.h"
 #include "simulator.h"
 #include "Arduino.h"
-#include <stdio.h>
 
 // configuration of sensors
 static struct sensor_cfg sensors[] = {
 	{1, 0}, {2, 0},	// two kettle sensors
 	{3, 1}, {4, 1},	// two ambient sensors
 	{5, 2}, 	// one condensor sensor
-	{6, 3}		// one alcohol sensor
+	{6, 3},		// one alcohol sensor
+	{0, 0}		// LAST ENTRY
 };
 
 // configuration of zones
@@ -24,9 +27,24 @@ static struct zone_cfg zones[] = {
 	{0, 800, 50}	// alcohol (sensor units)
 };
 
+// still parameters
 #define	HEATER		3000	// 1500 Watts
-#define	CAPACITY	20000	// 20L = 5G
-#define	AMBIENT		68	// degF
+#define	CAPACITY	40	// 40L = 10G
+#define	COND_LENGTH	2	// 2M condensor tube
+
+// condition parameters
+#define	AMBIENT		25	// degC
+#define	HUMIDITY	70	// percent
+
+// brew parameters
+#define VOLUME		20	// 20L = 5G
+#define	MALT		6	// Kg
+#define	BREW_TEMP	79	// DegC
+#define BREW_DELTAT	 2	// DegC
+#define BREW_TIME	10	// minutes
+#define BREW_COOL	35	// DegC
+
+#define	MAX_WAIT	100	//minutes
 
 int clock = 0;
 static char *sts[] = {	// map for status display
@@ -34,69 +52,80 @@ static char *sts[] = {	// map for status display
 	(char *) "high", (char *) "low", (char *) "wide",
 	(char *) "fast", (char *) "slow" };
 
-void dumpStatus(Still *still ) {
-	printf("%d:\tstatus=%s, heater %s\n", clock, 
-		sts[still->curStatus], 
-		still->heating ? "on" : "off");
+/*
+ * log a status record for the current operation and sensor state
+ */
+void dumpStatus(Controller *cont ) {
+	printf("%d:%02d:\tstatus=%s, heater %s\n", clock/60, clock%60, 
+		sts[cont->curStatus], 
+		cont->heating ? "on" : "off");
 	printf("\tkettle %dF (%dC)\n", 
-		sensorToDegF(still->curReading[0]),
-		sensorToDegC(still->curReading[0]));
+		sensorToDegF(cont->curReading[0]),
+		sensorToDegC(cont->curReading[0]));
 	printf("\tambient %dF (%dC)\n", 
-		sensorToDegF(still->curReading[1]),
-		sensorToDegC(still->curReading[1]));
+		sensorToDegF(cont->curReading[1]),
+		sensorToDegC(cont->curReading[1]));
 	printf("\tcondens %dF (%dC)\n", 
-		sensorToDegF(still->curReading[2]),
-		sensorToDegC(still->curReading[2]));
+		sensorToDegF(cont->curReading[2]),
+		sensorToDegC(cont->curReading[2]));
 	printf("\talcohol %d.%d\n", 
-		sensorToAlc10(still->curReading[3])/10,
-		sensorToAlc10(still->curReading[3])%10);
+		sensorToAlc10(cont->curReading[3])/10,
+		sensorToAlc10(cont->curReading[3])%10);
 }
 
 /*
  * wait up to a specified period of time for an operation to complete
  */
-void waitfor(Still *still, Simulator *simulator, int minutes) {
+void waitfor(Controller *cont, Simulator *simulator, int minutes) {
 
-	for(int m = 0; m < minutes; m++ ) {
-		bool cont = still->checkStatus();
-		dumpStatus(still);
-		digitalWrite(10, still->heating);
-		if (!cont)
+	for(int m = 0; m < minutes * 60; m++ ) {
+		bool ok = cont->checkStatus();
+		dumpStatus(cont);
+		digitalWrite(10, cont->heating);
+		if (!ok)
 			break;
-		clock += 60;
-		simulator->simulate(60);
+		clock += 1;
+		simulator->simulate(1);
 	}
 	digitalWrite(10, 0);	// heater off
 	printf("Operation completed\n");
-	dumpStatus(still);
+	dumpStatus(cont);
 }
 
 /*
- * run a standard test scenario
+ * run a standard test scenario on a still and brew
  */
-void test(Still *still, Simulator *simulator) {
+void test(Controller *cont, Simulator *simulator) {
 	// bring it up to 180
-	printf("HEAT 180\n");
-	still->setCommand(Still::heat, degFtoSensor(180), degFtoSensor(180));
-	waitfor(still,simulator, 100);
+	printf("HEAT %dC\n", BREW_TEMP);
+	cont->setCommand(Controller::heat, degCtoSensor(BREW_TEMP), degCtoSensor(BREW_TEMP));
+	waitfor(cont,simulator, MAX_WAIT);
 
 	// hold it between 175 and 185 for 10 minutes
-	printf("HOLD 175-185, 10 minutes\n");
-	still->setCommand(Still::hold, degFtoSensor(180), degFtoSensor(185));
-	waitfor(still,simulator, 10);
+	int hi = BREW_TEMP + BREW_DELTAT;
+	int lo = BREW_TEMP;
+	printf("HOLD %dC-%dC, %d minutes\n", lo, hi, BREW_TIME);
+	cont->setCommand(Controller::hold, degCtoSensor(lo), degCtoSensor(hi));
+	waitfor(cont,simulator, BREW_TIME);
 
 	// take it down to 100
-	printf("COOL 100\n");
-	still->setCommand(Still::cool, degFtoSensor(100), degFtoSensor(100));
-	waitfor(still,simulator, 100);
+	printf("COOL %dC\n", BREW_COOL);
+	cont->setCommand(Controller::cool, degCtoSensor(BREW_COOL), degCtoSensor(BREW_COOL));
+	waitfor(cont,simulator, MAX_WAIT);
 
 	printf("Test completed\n");
 }
 
+/*
+ * instantiate the objects and run the simulation
+ */
 int main(int argc, char **argv) {
-	// instantiate a still controller
-	Still *still = new Still(sensors, zones);
-	Simulator *simulator = new Simulator(HEATER, CAPACITY, degFtoSensor(AMBIENT));
+	// instantiate a still, a controller, and a simulation
+	Controller *cont = new Controller(sensors, zones);
+	Still *still = new Still(CAPACITY, HEATER, COND_LENGTH);
+	Brew *brew = new Brew(VOLUME, MALT);
+	Simulator *simulator = new Simulator(still, brew, degCtoSensor(AMBIENT), HUMIDITY);
 
-	test(still, simulator);
+	// run the test
+	test(cont, simulator);
 }

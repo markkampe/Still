@@ -1,9 +1,10 @@
-OBJS=tester.o still.o sensors.o simulator.o
+OBJS=tester.o controller.o sensors.o simulator.o still.o
+HEADERS=sensors.h controller.h still.h brew.h physics.h simulator.h Arduino.h
 
 tester: $(OBJS)
 	g++ -o $@ $(OBJS)
 
-$(OBJS): sensors.h still.h simulator.h Arduino.h
+$(OBJS): $(HEADERS)
 
 clobber:
 	rm -f tester $(OBJS)
