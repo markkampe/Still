@@ -52,23 +52,22 @@ static char *sts[] = {	// map for status display
 	(char *) "high", (char *) "low", (char *) "wide",
 	(char *) "fast", (char *) "slow" };
 
+static bool firstline = true;
 /*
  * log a status record for the current operation and sensor state
  */
 void dumpStatus(Controller *cont ) {
-	printf("%d:%02d:\tstatus=%s, heater %s\n", clock/60, clock%60, 
+	if (firstline) {
+		printf("# time(mmss),status,heat(%),kettle(F),ambient(F),condenser(F),alcohol(%)\n");
+		firstline = false;
+	}
+	printf("%02d%02d,%s,%d,%d,%d,%d,%d.%d\n",
+		clock/60, clock%60,
 		sts[cont->curStatus], 
-		cont->heating ? "on" : "off");
-	printf("\tkettle %dF (%dC)\n", 
+		cont->heating * 100,
 		sensorToDegF(cont->curReading[0]),
-		sensorToDegC(cont->curReading[0]));
-	printf("\tambient %dF (%dC)\n", 
 		sensorToDegF(cont->curReading[1]),
-		sensorToDegC(cont->curReading[1]));
-	printf("\tcondens %dF (%dC)\n", 
 		sensorToDegF(cont->curReading[2]),
-		sensorToDegC(cont->curReading[2]));
-	printf("\talcohol %d.%d\n", 
 		sensorToAlc10(cont->curReading[3])/10,
 		sensorToAlc10(cont->curReading[3])%10);
 }
@@ -88,7 +87,7 @@ void waitfor(Controller *cont, Simulator *simulator, int minutes) {
 		simulator->simulate(1);
 	}
 	digitalWrite(10, 0);	// heater off
-	printf("Operation completed\n");
+	fprintf(stderr,"Operation completed\n");
 	dumpStatus(cont);
 }
 
@@ -97,23 +96,23 @@ void waitfor(Controller *cont, Simulator *simulator, int minutes) {
  */
 void test(Controller *cont, Simulator *simulator) {
 	// bring it up to 180
-	printf("HEAT %dC\n", BREW_TEMP);
+	fprintf(stderr,"HEAT %dC\n", BREW_TEMP);
 	cont->setCommand(Controller::heat, degCtoSensor(BREW_TEMP), degCtoSensor(BREW_TEMP));
 	waitfor(cont,simulator, MAX_WAIT);
 
 	// hold it between 175 and 185 for 10 minutes
 	int hi = BREW_TEMP + BREW_DELTAT;
 	int lo = BREW_TEMP;
-	printf("HOLD %dC-%dC, %d minutes\n", lo, hi, BREW_TIME);
+	fprintf(stderr,"HOLD %dC-%dC, %d minutes\n", lo, hi, BREW_TIME);
 	cont->setCommand(Controller::hold, degCtoSensor(lo), degCtoSensor(hi));
 	waitfor(cont,simulator, BREW_TIME);
 
 	// take it down to 100
-	printf("COOL %dC\n", BREW_COOL);
+	fprintf(stderr,"COOL %dC\n", BREW_COOL);
 	cont->setCommand(Controller::cool, degCtoSensor(BREW_COOL), degCtoSensor(BREW_COOL));
 	waitfor(cont,simulator, MAX_WAIT);
 
-	printf("Test completed\n");
+	fprintf(stderr,"Test completed\n");
 }
 
 /*

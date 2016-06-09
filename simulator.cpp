@@ -26,7 +26,7 @@ void pinMode(int pin, int direction) { }
  *	the only output pins we simulate are the heater relay
  */
 void digitalWrite(int pin, short value) {
-	printf("\tHEAT[%d]: %s\n", pin, value ? "on" : "off");
+	fprintf(stderr,"\tHEAT[%d]: %s\n", pin, value ? "on" : "off");
 	sim->heat(value);
 }
 
@@ -97,16 +97,16 @@ Simulator::Simulator(Still *still, Brew* brew, short Tambient, short Hambient) {
 	dQ_ae = k_air * a_air / RADIUS;
 
 #ifdef DEBUG
-	printf("SIMULATE \ttemp=%6d S,  H2O=%d%%\n", Tambient, Hambient);
-	printf("kettle   \tmass=%6.2f Kg, C=%8.2f J/degS\n", still->Mkettle, C_kettle);
-	printf("condensor\tmass=%6.2f Kg, C=%8.2f J/degS\n", still->Mcond, C_condensor);
-	printf("brew     \tmass=%6.2f Kg, C=%8.2f J/degS\n", M_H2O + M_malt, C_brew);
-	printf("local air\tmass=%6.2f Kg, C=%8.2f J/degS\n", m_air + m_wet, C_local);
-	printf("k->cond  \tarea=%6.2f M2, dQ/dt = %f W/degS\n", still->Atubing, dQ_kc);
-	printf("k->air   \tarea=%6.2f M2, dQ/dt = %f W/degS\n", still->Akettle, dQ_ka);
-	printf("cond->air\tarea=%6.2f M2, dQ/dt = %f W/degS\n", still->Acond, dQ_ca);
-	printf("air->env \tarea=%6.2f M2, dQ/dt = %f W/degS\n", a_air, dQ_ae);
-	printf("enthalpy \t%6.2f J/Kg\n", enthalpy);
+	fprintf(stderr,"SIMULATE \ttemp=%6d S,  H2O=%d%%\n", Tambient, Hambient);
+	fprintf(stderr,"kettle   \tmass=%6.2f Kg, C=%8.2f J/degS\n", still->Mkettle, C_kettle);
+	fprintf(stderr,"condensor\tmass=%6.2f Kg, C=%8.2f J/degS\n", still->Mcond, C_condensor);
+	fprintf(stderr,"brew     \tmass=%6.2f Kg, C=%8.2f J/degS\n", M_H2O + M_malt, C_brew);
+	fprintf(stderr,"local air\tmass=%6.2f Kg, C=%8.2f J/degS\n", m_air + m_wet, C_local);
+	fprintf(stderr,"k->cond  \tarea=%6.2f M2, dQ/dt = %f W/degS\n", still->Atubing, dQ_kc);
+	fprintf(stderr,"k->air   \tarea=%6.2f M2, dQ/dt = %f W/degS\n", still->Akettle, dQ_ka);
+	fprintf(stderr,"cond->air\tarea=%6.2f M2, dQ/dt = %f W/degS\n", still->Acond, dQ_ca);
+	fprintf(stderr,"air->env \tarea=%6.2f M2, dQ/dt = %f W/degS\n", a_air, dQ_ae);
+	fprintf(stderr,"enthalpy \t%6.2f J/Kg\n", enthalpy);
 #endif
 }
 
@@ -175,16 +175,16 @@ void Simulator::simulate(int seconds) {
 	// FIX - compute temperature at the end
 
 #ifdef DEBUG
-	printf("k = %f, a = %f, c = %f\n", k, a, c);
-	printf("Tk + %9.2fS: J_ck = %9.2fJ, J_ka = %9.2fJ, J_kc = %9.2fJ\n", 
+	fprintf(stderr,"k = %f, a = %f, c = %f\n", k, a, c);
+	fprintf(stderr,"Tk + %9.2fS: J_ck = %9.2fJ, J_ka = %9.2fJ, J_kc = %9.2fJ\n", 
 		deltaK, J_ck, J_ka, J_aa);
-	printf("At + %9.2fS: J_ka = %9.2fJ, J_ca = %9.2fJ, J_aa = %9.2fJ\n", 
+	fprintf(stderr,"At + %9.2fS: J_ka = %9.2fJ, J_ca = %9.2fJ, J_aa = %9.2fJ\n", 
 		deltaA, J_ka, J_ca, J_aa);
-	printf("Ct + %9.2fS: J_kc = %9.2fJ, J_ca = %9.2fJ, J_bl = %9.2fJ\n", 
+	fprintf(stderr,"Ct + %9.2fS: J_kc = %9.2fJ, J_ca = %9.2fJ, J_bl = %9.2fJ\n", 
 		deltaC, J_kc, J_ca, J_boil);
 	if (M_boil > 0) {
 		float V_boil = M_boil * 1000 / Rho_C2H6O;
-		printf("distil: %8.5fKg (%8.5fL)\n", M_boil, V_boil);
+		fprintf(stderr,"distil: %8.5fKg (%8.5fL)\n", M_boil, V_boil);
 	}
 #endif
 }

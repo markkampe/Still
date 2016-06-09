@@ -62,21 +62,21 @@ bool Controller::checkStatus() {
 				curStatus = tooLow;
 				heating = false;
 #ifdef DEBUG
-				printf("LOW TEMP - zone %d: %d < %d\n", z, min, zones[z].minVal);
+				fprintf(stderr,"LOW TEMP - zone %d: %d < %d\n", z, min, zones[z].minVal);
 #endif
 			}
 			if (max > zones[z].maxVal) {
 				curStatus = tooHigh;
 				heating = false;
 #ifdef DEBUG
-				printf("HIGH TEMP - zone %d: %d > %d\n", z, max, zones[z].maxVal);
+				fprintf(stderr,"HIGH TEMP - zone %d: %d > %d\n", z, max, zones[z].maxVal);
 #endif
 			}
 			if (max - min > zones[z].maxDelta) {
 				curStatus = tooWide;
 				heating = false;
 #ifdef DEBUG
-				printf("DISCREPANCY - zone %d: %d - %d\n", z, min, max);
+				fprintf(stderr,"DISCREPANCY - zone %d: %d - %d\n", z, min, max);
 #endif
 			}
 		} 
