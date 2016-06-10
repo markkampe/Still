@@ -167,12 +167,17 @@ void Simulator::simulate(int seconds) {
 			values[alcohol] -= ALC_DIFFUSE;
 	}
 	
-	// compute the resulting brew temperature
+	// compute the updated brew temperature
 	float deltaK = (W_ck - (W_ka + W_kc + W_boil)) * seconds / C_brew;
 	values[kettle1] += deltaK;
 	values[kettle2] += deltaK;
+	k += deltaK;
 
-	// compute the resulting air temperature
+	// compute the boil off of water and alcohol
+	float barH2O = vaporPressure(H2O, sensorToDegC((short) k));
+	float barC2H6O = vaporPressure(C2H6O, sensorToDegC((short) k));
+
+	// compute the updated air temperature
 	float deltaA = (W_ka + W_ca - W_aa) * seconds / C_local;
 	if ((a - deltaA) < T_ambient)
 		deltaA = T_ambient - a;
@@ -186,11 +191,9 @@ void Simulator::simulate(int seconds) {
 	// values[output1] += deltaC;
 	// FIX - compute temperature at the end
 
-#ifdef DEBUG
 	if (logfile != NULL) {
 		fprintf(logfile,"%02d%02d%02d,%f,%f,%f,%f\n",
 			(int) clocktime/3600, (int) (clocktime/60)%60, (int) clocktime % 60,
 			W_ck, W_ka, W_boil, W_ca);
 	}
-#endif
 }

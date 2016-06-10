@@ -1,5 +1,5 @@
 STILL_OBJS=controller.o sensors.o
-SIM_OBJS=simulator.o still.o SD.o
+SIM_OBJS=simulator.o still.o SD.o physics.o
 TEST_OBJS=tester.o
 OBJS=$(TEST_OBJS) $(STILL_OBJS) $(SIM_OBJS)
 
