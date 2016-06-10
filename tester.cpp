@@ -3,6 +3,7 @@
  * (as such, it is not much like a real still manager)
  */
 #include <stdio.h>
+#include "SD.h"
 #include "controller.h"
 #include "sensors.h"
 #include "brew.h"
@@ -52,26 +53,6 @@ static char *sts[] = {	// map for status display
 	(char *) "high", (char *) "low", (char *) "wide",
 	(char *) "fast", (char *) "slow" };
 
-static bool firstline = true;
-/*
- * log a status record for the current operation and sensor state
- */
-void dumpStatus(Controller *cont ) {
-	if (firstline) {
-		printf("# time(mmss),status,heat(%),kettle(F),ambient(F),condenser(F),alcohol(%)\n");
-		firstline = false;
-	}
-	printf("%02d%02d,%s,%d,%d,%d,%d,%d.%d\n",
-		clock/60, clock%60,
-		sts[cont->curStatus], 
-		cont->heating * 100,
-		sensorToDegF(cont->curReading[0]),
-		sensorToDegF(cont->curReading[1]),
-		sensorToDegF(cont->curReading[2]),
-		sensorToAlc10(cont->curReading[3])/10,
-		sensorToAlc10(cont->curReading[3])%10);
-}
-
 /*
  * wait up to a specified period of time for an operation to complete
  */
@@ -79,7 +60,6 @@ void waitfor(Controller *cont, Simulator *simulator, int minutes) {
 
 	for(int m = 0; m < minutes * 60; m++ ) {
 		bool ok = cont->checkStatus();
-		dumpStatus(cont);
 		digitalWrite(10, cont->heating);
 		if (!ok)
 			break;
@@ -88,7 +68,6 @@ void waitfor(Controller *cont, Simulator *simulator, int minutes) {
 	}
 	digitalWrite(10, 0);	// heater off
 	fprintf(stderr,"Operation completed\n");
-	dumpStatus(cont);
 }
 
 /*
@@ -119,12 +98,18 @@ void test(Controller *cont, Simulator *simulator) {
  * instantiate the objects and run the simulation
  */
 int main(int argc, char **argv) {
+	// create an output file
+	SD *sd = new SD();
+	File *logfile = sd->open((char *) "sensors.csv", FILE_WRITE);
+
 	// instantiate a still, a controller, and a simulation
-	Controller *cont = new Controller(sensors, zones);
+	Controller *cont = new Controller(sensors, zones, logfile);
 	Still *still = new Still(CAPACITY, HEATER, COND_LENGTH);
 	Brew *brew = new Brew(VOLUME, MALT);
 	Simulator *simulator = new Simulator(still, brew, degCtoSensor(AMBIENT), HUMIDITY);
 
 	// run the test
 	test(cont, simulator);
+
+	logfile->close();
 }

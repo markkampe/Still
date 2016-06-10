@@ -1,18 +1,20 @@
-#define DEBUG 1
-#ifdef DEBUG
-#include <stdlib.h>
-#endif
-
-#include <stdio.h>
 #include "Arduino.h"
+#include "SD.h"
 #include "controller.h"
+
+/**
+ * This class implements the still controller.
+ *
+ * This module should be able to build both on Linux (for s/w testing)
+ * and on an Ardunio.  Hence it uses limited space and libraries.
+ */
 
 /**
  * constructor
  *	@param pointer to sensor configuration
  *	@param pointer to zone configuration
  */
-Controller::Controller( struct sensor_cfg *s, struct zone_cfg *z) {
+Controller::Controller( struct sensor_cfg *s, struct zone_cfg *z, File *logfile) {
 	// remember the configuration information
 	sensors = s;
 	zones = z;
@@ -28,6 +30,13 @@ Controller::Controller( struct sensor_cfg *s, struct zone_cfg *z) {
 	// allocate the zone value array
 	curReading = (unsigned short *) malloc(numzone);
 	curStatus = ready;
+
+	// and start logging
+	log = logfile;
+	if (log) {
+		logHeader();
+	}
+	
 }
 
 /**
@@ -61,27 +70,21 @@ bool Controller::checkStatus() {
 			if (min < zones[z].minVal) {
 				curStatus = tooLow;
 				heating = false;
-#ifdef DEBUG
-				fprintf(stderr,"LOW TEMP - zone %d: %d < %d\n", z, min, zones[z].minVal);
-#endif
 			}
 			if (max > zones[z].maxVal) {
 				curStatus = tooHigh;
 				heating = false;
-#ifdef DEBUG
-				fprintf(stderr,"HIGH TEMP - zone %d: %d > %d\n", z, max, zones[z].maxVal);
-#endif
 			}
 			if (max - min > zones[z].maxDelta) {
 				curStatus = tooWide;
 				heating = false;
-#ifdef DEBUG
-				fprintf(stderr,"DISCREPANCY - zone %d: %d - %d\n", z, min, max);
-#endif
 			}
 		} 
 		curReading[z] = (min + max)/2;
 	}
+
+	if (log)
+		logSensors();
 
 	if (curStatus != busy)
 		return( false );
@@ -89,16 +92,15 @@ bool Controller::checkStatus() {
 	// if we're busy, we have to manage the heat
 	if (curComand == heat) {
 		if (curReading[0] >= minTarget) {
-			heating = false;
 			curStatus = Controller::ready;
 			return( false );
 		} else {
-			heating = true;
+			heating = 100;
 			return( true );
 		}
 		// FIX: sanity check the cooling rate
 	} else if (curComand == cool) {
-		heating = false;
+		heating = 0;
 		if (curReading[0] <= maxTarget) {
 			curStatus = Controller::ready;
 			return( false );
@@ -107,9 +109,9 @@ bool Controller::checkStatus() {
 		return(true);
 	} else if (curComand == hold) {
 		if (curReading[0] < minTarget)
-			heating = true;
+			heating = 50;
 		else
-			heating = false;
+			heating = 0;
 		return( true );
 	}
 
@@ -140,4 +142,75 @@ void Controller::setCommand( enum command cmd, short min, short max ) {
 		maxTarget = max;
 		curStatus = busy;
 	}
+}
+
+/**
+ * write out a log file header
+ */
+void Controller::logHeader() {
+	log->println((char *) "# time(hhmmss),status,power,z[0],z[1],...");
+}
+
+/**
+ * number to ascii conversion
+ *
+ * @param pointer to buffer for characters
+ * @param value to be converted
+ * @param highest power of ten to start with
+ * @param character for leading padding
+ *
+ * @return next free position in buffer
+ */
+char *outInt(char *s, int value, int position, char pad) {
+
+	// start with leading zeroes
+	while(position > 1 && value/position == 0) {
+		if (pad != 0)
+			*s++ =  pad;
+		value %= position;
+		position /= 10;
+		
+	}
+
+	// then the significant digits
+	while(position > 0) {
+		int v = value/position;
+		*s++ = '0' + value/position;
+		value %= position;
+		position /= 10;
+	}
+
+	return(s);
+}
+
+/**
+ * write out a sensor log record
+ */
+void Controller::logSensors() {
+	char outbuf[80];
+	char *s = outbuf;
+	
+	// log the time
+	long now = millis()/1000;
+	int hr = now/3600;
+	int min = (now % 3600)/60;
+	int sec = now%60;
+	s = outInt(s, hr, 10, '0');
+	s = outInt(s, min, 10, '0');
+	s = outInt(s, sec, 10, '0');
+	*s++ = ',';
+
+	// log the status and heating power
+	s = outInt(s, curStatus, 1, 0);
+	*s++ = ',';
+	s = outInt(s, heating, 100, 0);
+
+	// log the sensors
+	for( int i = 0; i < numzone; i++) {
+		*s++ = ',';
+		s = outInt(s, curReading[i], 1000, 0);
+	}
+	*s++ = 0;
+
+	log->println(outbuf);
 }

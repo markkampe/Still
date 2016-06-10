@@ -1,17 +1,28 @@
-OBJS=tester.o controller.o sensors.o simulator.o still.o
-HEADERS=sensors.h controller.h still.h brew.h physics.h simulator.h Arduino.h
+STILL_OBJS=controller.o sensors.o
+SIM_OBJS=simulator.o still.o SD.o
+TEST_OBJS=tester.o
+OBJS=$(TEST_OBJS) $(STILL_OBJS) $(SIM_OBJS)
 
-test.png:	tester
-	./tester > test.csv
-	gnuplot -e "infile='test.csv'" -e "outfile='test.png'" test.plot 
+STILL_HDRS=sensors.h controller.h
+SIM_HDRS=simulator.h still.h brew.h physics.h Arduino.h SD.h
+HDRS=$(STILL_HDRS) $(SIM_HDRS)
+
+GRAPHS=sensors.png energy.png
+CSVS=sensors.csv energy.csv
+
+GRAPHS: $(CSVS)
+	gnuplot test.plot
+
+$(CSVS): tester
+	./tester
 
 tester: $(OBJS)
 	g++ -o $@ $(OBJS)
 
-$(OBJS): $(HEADERS)
+$(OBJS): $(HDRS)
 
 clobber:
-	rm -f tester test.png test.csv $(OBJS) 
+	rm -f tester $(GRAPHS) $(OBJS) $(CSVS)
 
 clean:
-	rm -f $(OBJS) test.csv
+	rm -f $(OBJS) $(CSVS)

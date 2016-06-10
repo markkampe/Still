@@ -28,19 +28,19 @@ class Controller {
 	};
 	unsigned char curStatus;	// current still status
 
-	enum command { stop=0, heat, cool, hold };
+	enum command { stop=0, heat, cool, hold, boil };
 	unsigned char curComand;	// current command
 	short minTarget;		// low target temp
 	short maxTarget;		// high target temp
 
-	unsigned char heating;		// heat should be on
+	unsigned short heating;		// heat power(%)
 
 	/**
 	 * constructor
 	 * @param sensor configuration
 	 * @param zone configuration
 	 */
-	Controller( struct sensor_cfg *, struct zone_cfg *);
+	Controller( struct sensor_cfg *, struct zone_cfg *, File *logfile);
 
 	/**
 	 * check status of sensors, determine what to do next
@@ -59,8 +59,10 @@ class Controller {
 	void reset();
 
     private:
+	void logHeader();
+	void logSensors();
+
 	struct sensor_cfg *sensors;
 	struct zone_cfg *zones;
-	unsigned short time0;	// time at start of heat/cool
-	short temp0;		// temp at start of heat/cool
+	File *log;
 };
