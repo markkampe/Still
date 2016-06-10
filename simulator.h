@@ -1,3 +1,4 @@
+#include <stdio.h>
 /**
  * still simulator for testing the control software
  */
@@ -13,6 +14,8 @@ class Simulator {
 	int heating;		// percent of heating power
 
     private:
+	FILE *logfile;
+
 	// current state of system
     	float values[7];	// sensor values
 	enum sensorPins {kettle1=1, kettle2, ambient1, ambient2, output1, alcohol};
