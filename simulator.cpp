@@ -102,8 +102,10 @@ Simulator::Simulator(Still *still, Brew* brew, short Tambient, short Hambient) {
 
 	// create a log file
 	logfile = fopen("energy.csv", "w");
-	fprintf(logfile, "# time (hhmmss),%s,%s,%s,%s\n",
-		"heat->kettle", "kettle->air", "kettle->boil", "condenser->air");
+	fprintf(logfile, "# time (hhmmss),%s,%s,%s,%s,%s,%s,%s,%s\n",
+		"heat->kettle", "kettle->air", "kettle->boil", "condenser->air",
+		"alc->condenser", "alc->output", "H2O->condenser", "H2O output"
+		);
 
 #ifdef DEBUG
 	fprintf(stdout,"SIMULATE \ttemp=%6d S,  H2O=%d%%\n", Tambient, Hambient);
@@ -119,14 +121,26 @@ Simulator::Simulator(Still *still, Brew* brew, short Tambient, short Hambient) {
 #endif
 }
 
+/**
+ * turn on the heater
+ * @param percent power
+ */
 void Simulator::heat(int percent) {
 	heating = percent;
 }
 
+/**
+ * simulate the reading of an analog sensor pin
+ *
+ * 	values come from the simulation
+ */
 short Simulator::readPin(int pin) {
 	return( (short) values[pin] );
 }
 
+/**
+ * simulate the passage of time, at current settings
+ */
 void Simulator::simulate(int seconds) {
 
 	// update the clock
@@ -177,6 +191,18 @@ void Simulator::simulate(int seconds) {
 	float barH2O = vaporPressure(H2O, sensorToDegC((short) k));
 	float barC2H6O = vaporPressure(C2H6O, sensorToDegC((short) k));
 
+	// TODO
+	//	we now know the evaporation over-pressure
+	//	how much water/ethanol is this (PV=nRT, solve for delta-n)
+	//	how much (or each) will flow out the condensor (delta P * ? * diameter/len)
+	//	how much latent heat of evaporation do they carry
+	//	compute convective loss from the condensor
+	//	compare that with the heat carried by the flowing water/enthanol vapor
+	//	figure out what fraction of the ethanol condenses
+	//	figure out how much alcohol vapor escapes
+	//	add that to the local 2M cube
+	//	compute long term diffusion of alcohol out of the local cube
+
 	// compute the updated air temperature
 	float deltaA = (W_ka + W_ca - W_aa) * seconds / C_local;
 	if ((a - deltaA) < T_ambient)
@@ -189,11 +215,17 @@ void Simulator::simulate(int seconds) {
 	if ((c + deltaC) < T_ambient)
 		deltaC = T_ambient - c;
 	// values[output1] += deltaC;
-	// FIX - compute temperature at the end
+
+	float v_alc = 0;	// alcohol vapor to condenser
+	float l_alc = 0;	// alcohol liquid condensed
+	float v_H2O = 0;	// water vapor to condenser
+	float l_H2O = 0;	// water liquid condensed
 
 	if (logfile != NULL) {
-		fprintf(logfile,"%02d%02d%02d,%f,%f,%f,%f\n",
+		fprintf(logfile,"%02d%02d%02d,%f,%f,%f,%f,%f,%f,%f,%f\n",
 			(int) clocktime/3600, (int) (clocktime/60)%60, (int) clocktime % 60,
-			W_ck, W_ka, W_boil, W_ca);
+			W_ck, W_ka, W_boil, W_ca,
+			v_alc, l_alc, v_H2O, l_H2O
+			);
 	}
 }

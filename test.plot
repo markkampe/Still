@@ -40,7 +40,7 @@ plot infile using 1:(degF($4)) title "Kettle" lc rgb "orange", \
 
 # plot the energy simulations
 set output "energy.png"
-set title "Energy Transfer"
+set title "Energy/Fluid Transfer"
 
 set ylabel "Watts"
 set logscale y
@@ -48,12 +48,14 @@ set yrange [.5:15000]
 # make sure we have no zero values
 logSafe(v) = ((v <= 0.01) ? 0.01 : v)
 
-unset y2label
-unset y2range
-unset y2tics
+set y2label "Output (ml/min)"
+set y2range [0:10]
+set y2tics
 
 infile = "energy.csv"
 plot infile using 1:(logSafe($2)) title "heat->kettle" lc rgb "red", \
      infile using 1:(logSafe($3)) title "kettle->air"  lc rgb "blue", \
      infile using 1:(logSafe($4)) title "kettle->boil" lc rgb "green", \
-     infile using 1:(logSafe($5)) title "cond->air"   lc rgb "orange"
+     infile using 1:(logSafe($5)) title "cond->air"   lc rgb "orange", \
+     infile using 1:7 title "C2H6O out" lc rgb "violet", \
+     infile using 1:9 title "H2O out" 
