@@ -193,7 +193,10 @@ void Simulator::simulate(int seconds) {
 
 	// TODO
 	//	we now know the evaporation over-pressure
-	//	how much water/ethanol is this (PV=nRT, solve for delta-n)
+	//	how much phase change is there
+	//		a) n = PV/RT, use dP to estimate dN
+	//		b) compute the flow
+	//	this amount of phase change is subtracted from kettle heat equation
 	//	how much (or each) will flow out the condensor (delta P * ? * diameter/len)
 	//	how much latent heat of evaporation do they carry
 	//	compute convective loss from the condensor
