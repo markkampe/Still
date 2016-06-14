@@ -23,6 +23,8 @@ class Simulator {
 	// basic system characteristics
 	int power;		// available heating power (Watts)
 	int T_ambient;		// air temp (degS)
+	float diameter;		// diameter of condenser tube
+	float length;		// length of condenser tube
 
 	// calculated specific heats (joules/sensor tick)
 	float C_kettle;		// kettle

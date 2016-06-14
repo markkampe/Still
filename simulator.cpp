@@ -54,6 +54,8 @@ Simulator::Simulator(Still *still, Brew* brew, short Tambient, short Hambient) {
 	sim = this;
 	T_ambient = Tambient;
 	power = still->Pheat;
+	diameter = still->Dtubing;
+	length = still->Ltubing;
 
 	// initialize the sensor values
 	values[kettle1] = Tambient + 2;
@@ -187,9 +189,16 @@ void Simulator::simulate(int seconds) {
 	values[kettle2] += deltaK;
 	k += deltaK;
 
-	// compute the boil off of water and alcohol
-	float barH2O = vaporPressure(H2O, sensorToDegC((short) k));
-	float barC2H6O = vaporPressure(C2H6O, sensorToDegC((short) k));
+	// compute the vapor presssure of water and ethanol
+	float P_H2O = vaporPressure(H2O, sensorToDegC((short) k));
+	float P_C2H6O = vaporPressure(C2H6O, sensorToDegC((short) k));
+	// FIX Delta-P != vapor pressure
+
+	// compute the flow through the condenser of each (ml/s)
+	float flow_H2O = flowRate(H2O, P_H2O, diameter, length) * 1000000;
+	float flow_C2H6O = flowRate(C2H6O, P_C2H6O, diameter, length) * 1000000;
+
+	printf("Palc=%f, Falc=%f\n", P_C2H6O, flow_C2H6O);
 
 	// TODO
 	//	we now know the evaporation over-pressure
@@ -219,16 +228,14 @@ void Simulator::simulate(int seconds) {
 		deltaC = T_ambient - c;
 	// values[output1] += deltaC;
 
-	float v_alc = 0;	// alcohol vapor to condenser
 	float l_alc = 0;	// alcohol liquid condensed
-	float v_H2O = 0;	// water vapor to condenser
 	float l_H2O = 0;	// water liquid condensed
 
 	if (logfile != NULL) {
 		fprintf(logfile,"%02d%02d%02d,%f,%f,%f,%f,%f,%f,%f,%f\n",
 			(int) clocktime/3600, (int) (clocktime/60)%60, (int) clocktime % 60,
 			W_ck, W_ka, W_boil, W_ca,
-			v_alc, l_alc, v_H2O, l_H2O
+			P_C2H6O, flow_C2H6O, P_H2O, flow_H2O
 			);
 	}
 }

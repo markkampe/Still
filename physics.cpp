@@ -22,5 +22,20 @@ float vaporPressure(enum material stuff , short t) {
 			VA_C2H6O - (VB_C2H6O / (VC_C2H6O + t));
 	}
 
-	return( mm_Hg * pow(10, l));	// convert to bar
+	return( mm_Hg * pow(10, l));	// convert to Pascals
+}
+
+/**
+ * use Hagen-Poiseuille relation to compute flow rate
+ *
+ * @param material (H2O, C2H6O)
+ * @param pressure head (Pascals)
+ * @param diameter (meters)
+ * @param length (meters)
+ *
+ * @return flow rate (M^3/s)
+ */
+float flowRate(enum material stuff, float head, float diameter, float length) {
+	float mu = (stuff == H2O) ? mu_H2O : mu_C2H6O;
+	return (head * 3.14159 * pow(diameter,4) / (128 * mu * length));
 }

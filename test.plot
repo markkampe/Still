@@ -3,7 +3,7 @@
 # output to a file
 set term png size 1024
 
-set key center center
+set key top right
 set style data lines
 
 set title "Sensor Readings"
@@ -12,6 +12,7 @@ set xlabel "time(min)"
 set xdata time
 set timefmt "%H%M%S"
 set format x "%M"
+set xtics nomirror
 
 set ylabel "Temp(F)"
 set yrange [0:220]
@@ -35,7 +36,7 @@ set output "sensors.png"
 plot infile using 1:(degF($4)) title "Kettle" lc rgb "orange", \
      infile using 1:(degF($5)) title "Ambient" lc rgb "blue", \
      infile using 1:(degF($6)) title "Condenser" lc rgb "violet", \
-     infile using 1:(alc($7)) title "Alcohol(%)" lc rgb "green" axes x1y2, \
+     infile using 1:(alc($7))  title "Alcohol(%)" lc rgb "green" axes x1y2, \
      infile using 1:3 title "heat(%)" axes x1y2 lc rgb "red"
 
 # plot the energy simulations
@@ -48,14 +49,15 @@ set yrange [.5:15000]
 # make sure we have no zero values
 logSafe(v) = ((v <= 0.01) ? 0.01 : v)
 
-set y2label "Output (ml/min)"
-set y2range [0:10]
+set autoscale y2
+set y2label "vapor pressure (Pascal)"
 set y2tics
+set key bottom center
 
 infile = "energy.csv"
 plot infile using 1:(logSafe($2)) title "heat->kettle" lc rgb "red", \
      infile using 1:(logSafe($3)) title "kettle->air"  lc rgb "blue", \
      infile using 1:(logSafe($4)) title "kettle->boil" lc rgb "green", \
-     infile using 1:(logSafe($5)) title "cond->air"   lc rgb "orange", \
-     infile using 1:7 title "C2H6O out" lc rgb "violet", \
-     infile using 1:9 title "H2O out" 
+     infile using 1:(logSafe($5)) title "cond->air"    lc rgb "orange", \
+     infile using 1:6 title "C2H6O vapor" lc rgb "violet", \
+     infile using 1:8 title "H2O vapor" 

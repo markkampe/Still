@@ -34,8 +34,17 @@ const float Tb_C2H6O	= 78.4;		// boiling point of ethanol (degC)
 const float H_H20	= 75300;	// enthalpy (J/mol)
 const float H_C2H6O	= 38600;	// enthalpy (J/mol)
 
+// viscosity
+const float mu_H2O	= 0.000377;	// Pa.s
+const float mu_C2H6O	= 0.000459;	// Pa.s
+
+// pressure 
+const float mm_Hg = 133.32268;		// pascals
+const float Bar = 103325;		// pascals
+
 enum material {H2O, C2H6O};
 float vaporPressure(enum material, short temp);
+float flowRate(enum material, float head, float diameter, float length);
 
 // vapor pressure coefficients (Antoine equation)
 const float VA_H2O	= 8.07131;
@@ -52,8 +61,6 @@ const float VB_C2H6O_B	= 1332.04;
 const float VC_C2H6O	= 230.3;	// degK
 const float VC_C2H6O_B	= 199.200;	// degK
 
-// pressure conversion
-const float mm_Hg = .0013332268;
 
 // useful equations (I knew this stuff would be handy someday)
 //	1 watt		1 joul/second
@@ -63,4 +70,6 @@ const float mm_Hg = .0013332268;
 //	conduction:	dQ/dt = k * area * deltaT / thickness
 //	convection:	dQ/dt = h * area * deltaT
 //	vapor pressure	10^(A-(B/(C+T))
-//	steam flow
+//	steam flow	Q = delta-P * pi D^4 /128 mu L
+//				delta-P in Pascals
+//				mu is visc

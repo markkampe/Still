@@ -10,7 +10,7 @@ HDRS=$(STILL_HDRS) $(SIM_HDRS)
 GRAPHS=sensors.png energy.png
 CSVS=sensors.csv energy.csv
 
-GRAPHS: $(CSVS)
+GRAPHS: $(CSVS) test.plot
 	gnuplot test.plot
 
 $(CSVS): tester
